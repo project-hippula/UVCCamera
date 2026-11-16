@@ -916,9 +916,14 @@ public final class USBMonitor {
 			if (BuildCheck.isMarshmallow()) {
 				info.usb_version = device.getVersion();
 			}
-			if ((manager != null) && manager.hasPermission(device)) {
-				final UsbDeviceConnection connection = manager.openDevice(device);
-				final byte[] desc = connection.getRawDescriptors();
+			// openDevice returns null for a UVC device until the CAMERA permission is granted too
+			final UsbDeviceConnection connection = (manager != null) && manager.hasPermission(device)
+				? manager.openDevice(device) : null;
+			final byte[] desc = connection != null ? connection.getRawDescriptors() : null;
+			if ((connection != null) && ((desc == null) || (desc.length < 18))) {
+				connection.close();
+			}
+			if ((desc != null) && (desc.length >= 18)) {
 
 				if (TextUtils.isEmpty(info.usb_version)) {
 					info.usb_version = String.format("%x.%02x", ((int)desc[3] & 0xff), ((int)desc[2] & 0xff));
