@@ -10,3 +10,9 @@ The `hippula` branch carries fixes the Hippula guardian app needs on top of upst
 ## Release
 
 Bump `HIPPULA_VERSION` and push to `hippula`. The `Hippula AAR` workflow builds the release AAR, checks the arm64 page alignment and uploads the Maven repository layout as the `maven` artifact; copy it into the app's `modules/hippula-uvc-camera/android/maven/org/uvccamera/lib/`.
+
+## Releases
+
+| Version | Commit | AAR sha256 | Build |
+| --- | --- | --- | --- |
+| 0.0.13-hippula.1 | e0df72b | `e0599359b7ba117b32b6d06d4e8dcb2dcd806922c526a3cdc817cad99059ec92` | [run 43913565684](https://github.com/project-hippula/UVCCamera/actions/runs/43913565684) |
