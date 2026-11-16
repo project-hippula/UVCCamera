@@ -8,6 +8,7 @@ version = findProperty("uvccamera.version") as String? ?: "0.0.0-SNAPSHOT"
 android {
     namespace = "org.uvccamera.lib"
     compileSdk = 34
+    ndkVersion = "27.1.12297006"
 
     defaultConfig {
         minSdk = 21
