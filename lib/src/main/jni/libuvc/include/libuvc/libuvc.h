@@ -558,6 +558,8 @@ void uvc_unref_device(uvc_device_t *dev);
 void uvc_set_status_callback(uvc_device_handle_t *devh,
 		uvc_status_callback_t cb, void *user_ptr);
 
+void uvc_set_prefer_single_transaction(uvc_device_handle_t *devh, uint8_t prefer);
+
 void uvc_set_button_callback(uvc_device_handle_t *devh,
                              uvc_button_callback_t cb,
                              void *user_ptr);

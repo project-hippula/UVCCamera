@@ -226,6 +226,17 @@ static jint nativeSetPreviewSize(JNIEnv *env, jobject thiz,
 	RETURN(JNI_ERR, jint);
 }
 
+static jint nativeSetPreferSingleTransaction(JNIEnv *env, jobject thiz,
+	ID_TYPE id_camera, jboolean prefer) {
+
+	ENTER();
+	UVCCamera *camera = reinterpret_cast<UVCCamera *>(id_camera);
+	if (LIKELY(camera)) {
+		return camera->setPreferSingleTransaction(prefer);
+	}
+	RETURN(JNI_ERR, jint);
+}
+
 static jint nativeStartPreview(JNIEnv *env, jobject thiz,
 	ID_TYPE id_camera) {
 
@@ -2024,6 +2035,7 @@ static JNINativeMethod methods[] = {
 
 	{ "nativeGetSupportedSize",			"(J)Ljava/lang/String;", (void *) nativeGetSupportedSize },
 	{ "nativeSetPreviewSize",			"(JIIIIIF)I", (void *) nativeSetPreviewSize },
+	{ "nativeSetPreferSingleTransaction",	"(JZ)I", (void *) nativeSetPreferSingleTransaction },
 	{ "nativeStartPreview",				"(J)I", (void *) nativeStartPreview },
 	{ "nativeStopPreview",				"(J)I", (void *) nativeStopPreview },
 	{ "nativeSetPreviewDisplay",		"(JLandroid/view/Surface;)I", (void *) nativeSetPreviewDisplay },

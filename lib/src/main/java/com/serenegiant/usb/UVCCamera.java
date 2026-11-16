@@ -333,6 +333,12 @@ public class UVCCamera {
 		}
 	}
 
+	public void setPreferSingleTransaction(final boolean prefer) {
+		if (mNativePtr != 0) {
+			nativeSetPreferSingleTransaction(mNativePtr, prefer);
+		}
+	}
+
 	public List<Size> getSupportedSizeList() {
 		final int type = (mCurrentFrameFormat > 0) ? 6 : 4;
 		return getSupportedSize(type, mSupportedSize);
@@ -1039,6 +1045,7 @@ public class UVCCamera {
 	private static final native int nativeSetButtonCallback(final long mNativePtr, final IButtonCallback callback);
 
     private static final native int nativeSetPreviewSize(final long id_camera, final int width, final int height, final int min_fps, final int max_fps, final int mode, final float bandwidth);
+    private static final native int nativeSetPreferSingleTransaction(final long id_camera, final boolean prefer);
     private static final native String nativeGetSupportedSize(final long id_camera);
     private static final native int nativeStartPreview(final long id_camera);
     private static final native int nativeStopPreview(final long id_camera);

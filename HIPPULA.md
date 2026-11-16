@@ -6,6 +6,8 @@ The `hippula` branch carries fixes the Hippula guardian app needs on top of upst
 - The callbacks return early when no Java callback is registered, and their destructors unregister from libuvc, so an interrupt during release cannot reach a freed object.
 - `USBMonitor.updateDeviceInfo` tolerates a null connection or short descriptors (`openDevice` returns null for a UVC device until the CAMERA permission is granted).
 - 16 KB page alignment and a pinned NDK.
+- MJPEG isochronous streams use only alt settings with one transaction per microframe (`wMaxPacketSize` bits 11–12 zero), capping the requested bandwidth at the largest such setting. The Samsung SM-X200's USB host garbles 2- and 3-transaction data into horizontal stripes, while MJPEG rarely needs more than one transaction. `UVCCamera.setPreferSingleTransaction(false)`, after open and before the preview starts, restores the old selection. A device with no single-transaction setting keeps the old selection too.
+- A packet with the UVC header ERR bit marks the frame it belongs to, checked after the FID frame boundary, so that frame is dropped before the frame callback instead of being delivered truncated (decoded gray below the gap). The branch no longer clears the endpoint halt or reads the VideoStreaming error code: both were synchronous control transfers inside the USB event callback.
 
 ## Release
 

@@ -815,8 +815,6 @@ static inline void _uvc_process_payload_iso(uvc_stream_handle_t *strmh, struct l
 		0x11, 0x22, 0x33, 0x44, 0xde, 0xad,
 		0xbe, 0xef, 0xde, 0xad, 0xfa, 0xce };
 	int packet_id;
-	uvc_vc_error_code_control_t vc_error_code;
-	uvc_vs_error_code_control_t vs_error_code;
 
 	for (packet_id = 0; packet_id < transfer->num_iso_packets; ++packet_id) {
 		check_header = 1;
@@ -863,14 +861,6 @@ static inline void _uvc_process_payload_iso(uvc_stream_handle_t *strmh, struct l
 
 			if (LIKELY(check_header)) {
 				header_info = pktbuf[1];
-				if (UNLIKELY(header_info & UVC_STREAM_ERR)) {
-//					strmh->bfh_err |= UVC_STREAM_ERR;
-					MARK("bad packet:status=0x%2x", header_info);
-					libusb_clear_halt(strmh->devh->usb_devh, strmh->stream_if->bEndpointAddress);
-//					uvc_vc_get_error_code(strmh->devh, &vc_error_code, UVC_GET_CUR);
-					uvc_vs_get_error_code(strmh->devh, &vs_error_code, UVC_GET_CUR);
-					continue;
-				}
 #ifdef USE_EOF
 				if ((strmh->fid != (header_info & UVC_STREAM_FID)) && strmh->got_bytes) {	// got_bytesを取ると殆ど画面更新されない
 				/* The frame ID bit was flipped, but we have image data sitting
@@ -885,6 +875,12 @@ static inline void _uvc_process_payload_iso(uvc_stream_handle_t *strmh, struct l
 					strmh->fid = header_info & UVC_STREAM_FID;
 				}
 #endif
+				// After the FID check, so the flag lands on the frame this packet belongs to.
+				if (UNLIKELY(header_info & UVC_STREAM_ERR)) {
+					strmh->bfh_err |= UVC_STREAM_ERR;
+					MARK("bad packet:status=0x%2x", header_info);
+					continue;
+				}
 				if (header_info & UVC_STREAM_PTS) {
 					// XXX saki some camera may send broken packet or failed to receive all data
 					if (LIKELY(header_len >= 6)) {
@@ -1368,6 +1364,23 @@ uvc_error_t uvc_stream_start(uvc_stream_handle_t *strmh,
 	return uvc_stream_start_bandwidth(strmh, cb, user_ptr, 0, flags);
 }
 
+static size_t _uvc_largest_single_transaction_bytes(const struct libusb_interface *interface, uint8_t endpoint_address) {
+	size_t largest = 0;
+	int alt_idx, ep_idx;
+	for (alt_idx = 0; alt_idx < interface->num_altsetting; alt_idx++) {
+		const struct libusb_interface_descriptor *altsetting = interface->altsetting + alt_idx;
+		for (ep_idx = 0; ep_idx < altsetting->bNumEndpoints; ep_idx++) {
+			const struct libusb_endpoint_descriptor *endpoint = altsetting->endpoint + ep_idx;
+			if (endpoint->bEndpointAddress == endpoint_address
+				&& !((endpoint->wMaxPacketSize >> 11) & 3)
+				&& (size_t)(endpoint->wMaxPacketSize & 0x07ff) > largest) {
+				largest = endpoint->wMaxPacketSize & 0x07ff;
+			}
+		}
+	}
+	return largest;
+}
+
 /** Begin streaming video from the stream into the callback function.
  * @ingroup streaming
  *
@@ -1473,6 +1486,15 @@ uvc_error_t uvc_stream_start_bandwidth(uvc_stream_handle_t *strmh,
 			goto fail;
 		}
 
+		// Some USB hosts (the Samsung SM-X200) corrupt high-bandwidth isochronous data, and MJPEG
+		// rarely needs more than one transaction per microframe.
+		const size_t single_transaction_bytes =
+			(strmh->devh->prefer_single_transaction && strmh->frame_format == UVC_FRAME_FORMAT_MJPEG)
+				? _uvc_largest_single_transaction_bytes(interface, format_desc->parent->bEndpointAddress) : 0;
+		if (single_transaction_bytes && config_bytes_per_packet > single_transaction_bytes) {
+			config_bytes_per_packet = single_transaction_bytes;
+		}
+
 		/* Go through the altsettings and find one whose packets are at least
 		 * as big as our format's maximum per-packet usage. Assume that the
 		 * packet sizes are increasing. */
@@ -1485,6 +1507,9 @@ uvc_error_t uvc_stream_start_bandwidth(uvc_stream_handle_t *strmh,
 			for (ep_idx = 0; ep_idx < altsetting->bNumEndpoints; ep_idx++) {
 				endpoint = altsetting->endpoint + ep_idx;
 				if (endpoint->bEndpointAddress == format_desc->parent->bEndpointAddress) {
+					if (single_transaction_bytes && ((endpoint->wMaxPacketSize >> 11) & 3)) {
+						break;
+					}
 					endpoint_bytes_per_packet = endpoint->wMaxPacketSize;
 					// wMaxPacketSize: [unused:2 (multiplier-1):3 size:11]
 					// bit10…0:		maximum packet size

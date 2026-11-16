@@ -288,6 +288,7 @@ uvc_error_t uvc_open(uvc_device_t *dev, uvc_device_handle_t **devh) {
 	internal_devh->dev = dev;
 	internal_devh->usb_devh = usb_devh;
 	internal_devh->reset_on_release_if = 0;	// XXX
+	internal_devh->prefer_single_transaction = 1;
 	ret = uvc_get_device_info(dev, &(internal_devh->info));
 	pthread_mutex_init(&internal_devh->status_mutex, NULL);	// XXX saki
 
@@ -1783,6 +1784,10 @@ void _uvc_status_callback(struct libusb_transfer *transfer) {
 	UVC_DEBUG("libusb_submit_transfer() = %d", ret);
 
 	UVC_EXIT_VOID();
+}
+
+void uvc_set_prefer_single_transaction(uvc_device_handle_t *devh, uint8_t prefer) {
+	devh->prefer_single_transaction = prefer;
 }
 
 /** @brief Set a callback function to receive status updates

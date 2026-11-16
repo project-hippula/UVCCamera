@@ -255,6 +255,16 @@ int UVCCamera::setPreviewSize(int width, int height, int min_fps, int max_fps, i
 	RETURN(result, int);
 }
 
+int UVCCamera::setPreferSingleTransaction(bool prefer) {
+	ENTER();
+	int result = EXIT_FAILURE;
+	if (mDeviceHandle) {
+		uvc_set_prefer_single_transaction(mDeviceHandle, prefer ? 1 : 0);
+		result = EXIT_SUCCESS;
+	}
+	RETURN(result, int);
+}
+
 int UVCCamera::setPreviewDisplay(ANativeWindow *preview_window) {
 	ENTER();
 	int result = EXIT_FAILURE;
