@@ -21,6 +21,8 @@ UVCButtonCallback::UVCButtonCallback(uvc_device_handle_t *devh)
 UVCButtonCallback::~UVCButtonCallback() {
 
 	ENTER();
+	// libuvc calls back under its own status_mutex, so this also waits out a callback in flight
+	uvc_set_button_callback(mDeviceHandle, NULL, NULL);
 	pthread_mutex_destroy(&button_mutex);
 	EXIT();
 }
@@ -74,12 +76,26 @@ void UVCButtonCallback::uvc_button_callback(int button, int state, void *user_pt
 
 	UVCButtonCallback *buttonCallback = reinterpret_cast<UVCButtonCallback *>(user_ptr);
 
+	if (!buttonCallback->mButtonCallbackObj) {
+		LOGW("button event %d/%d dropped: no Java callback", button, state);
+		return;
+	}
+
 	JavaVM *vm = getVM();
 	JNIEnv *env;
-	// attach to JavaVM
-	vm->AttachCurrentThread(&env, NULL);
+	// A synchronous control transfer runs libusb's event handling on the calling Java thread,
+	// so this callback can run there; detaching that thread aborts the runtime.
+	bool attached = false;
+	if (vm->GetEnv((void **)&env, JNI_VERSION_1_6) == JNI_EDETACHED) {
+		if (vm->AttachCurrentThread(&env, NULL) != JNI_OK) {
+			return;
+		}
+		attached = true;
+	}
 
 	buttonCallback->notifyButtonCallback(env, button, state);
-	
-	vm->DetachCurrentThread();
+
+	if (attached) {
+		vm->DetachCurrentThread();
+	}
 }
