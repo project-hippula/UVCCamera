@@ -18,3 +18,4 @@ Bump `HIPPULA_VERSION` and push to `hippula`. The `Hippula AAR` workflow builds 
 | Version | Commit | AAR sha256 | Build |
 | --- | --- | --- | --- |
 | 0.0.13-hippula.1 | e0df72b | `e0599359b7ba117b32b6d06d4e8dcb2dcd806922c526a3cdc817cad99059ec92` | [run 43913565684](https://github.com/project-hippula/UVCCamera/actions/runs/43913565684) |
+| 0.0.13-hippula.2 | 5038d9c | `ad18b3310ef1c6cf19858c2fcd0caa219559b74879325c8c96b9c03c72398faf` | [run 43940333858](https://github.com/project-hippula/UVCCamera/actions/runs/43940333858) |
