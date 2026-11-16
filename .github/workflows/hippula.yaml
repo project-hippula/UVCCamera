@@ -1,0 +1,58 @@
+name: Hippula AAR
+
+on:
+  push:
+    branches:
+      - hippula
+  workflow_dispatch:
+
+env:
+  NDK_VERSION: 27.1.12297006
+
+jobs:
+  build-lib:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up temurin-jdk-17
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: ndk;${{ env.NDK_VERSION }}
+
+      - name: Publish to a local Maven repository
+        run: >
+          ./gradlew :lib:publishReleasePublicationToMavenLocal
+          -Puvccamera.version="$(cat HIPPULA_VERSION)"
+
+      - name: Check 16 KB page alignment
+        run: |
+          readelf="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          aar=$(find ~/.m2/repository/org/uvccamera/lib -name '*.aar')
+          mkdir aar && unzip -q "$aar" -d aar
+          status=0
+          for so in aar/jni/arm64-v8a/*.so; do
+            if "$readelf" -lW "$so" | awk '$1 == "LOAD" && $NF != "0x4000" { bad = 1 } END { exit bad }'; then
+              echo "ok   $so"
+            else
+              echo "FAIL $so"; status=1
+            fi
+          done
+          exit $status
+
+      - name: Upload Maven repository
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maven
+          path: ~/.m2/repository/org/uvccamera/lib
