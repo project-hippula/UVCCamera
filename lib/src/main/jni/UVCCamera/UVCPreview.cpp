@@ -192,7 +192,10 @@ int UVCPreview::setPreviewDisplay(ANativeWindow *preview_window) {
 	ENTER();
 	pthread_mutex_lock(&preview_mutex);
 	{
-		if (mPreviewWindow != preview_window) {
+		if (mPreviewWindow == preview_window) {
+			if (preview_window)
+				ANativeWindow_release(preview_window);
+		} else {
 			if (mPreviewWindow)
 				ANativeWindow_release(mPreviewWindow);
 			mPreviewWindow = preview_window;
