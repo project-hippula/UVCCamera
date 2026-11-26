@@ -270,6 +270,8 @@ int UVCCamera::setPreviewDisplay(ANativeWindow *preview_window) {
 	int result = EXIT_FAILURE;
 	if (mPreview) {
 		result = mPreview->setPreviewDisplay(preview_window);
+	} else if (preview_window) {
+		ANativeWindow_release(preview_window);
 	}
 	RETURN(result, int);
 }
@@ -306,6 +308,8 @@ int UVCCamera::setCaptureDisplay(ANativeWindow *capture_window) {
 	int result = EXIT_FAILURE;
 	if (mPreview) {
 		result = mPreview->setCaptureDisplay(capture_window);
+	} else if (capture_window) {
+		ANativeWindow_release(capture_window);
 	}
 	RETURN(result, int);
 }

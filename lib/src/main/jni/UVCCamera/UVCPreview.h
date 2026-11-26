@@ -102,6 +102,7 @@ private:
 //
 	void addCaptureFrame(uvc_frame_t *frame);
 	uvc_frame_t *waitCaptureFrame();
+	ANativeWindow *acquireCaptureWindow();
 	void clearCaptureFrame();
 	static void *capture_thread_func(void *vptr_args);
 	void do_capture(JNIEnv *env);

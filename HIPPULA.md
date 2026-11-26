@@ -8,6 +8,8 @@ The `hippula` branch carries fixes the Hippula guardian app needs on top of upst
 - 16 KB page alignment and a pinned NDK.
 - MJPEG isochronous streams use only alt settings with one transaction per microframe (`wMaxPacketSize` bits 11–12 zero), capping the requested bandwidth at the largest such setting. The Samsung SM-X200's USB host garbles 2- and 3-transaction data into horizontal stripes, while MJPEG rarely needs more than one transaction. `UVCCamera.setPreferSingleTransaction(false)`, after open and before the preview starts, restores the old selection. A device with no single-transaction setting keeps the old selection too.
 - A packet with the UVC header ERR bit marks the frame it belongs to, checked after the FID frame boundary, so that frame is dropped before the frame callback instead of being delivered truncated (decoded gray below the gap). The branch no longer clears the endpoint halt or reads the VideoStreaming error code: both were synchronous control transfers inside the USB event callback.
+- Only code holding `capture_mutex` releases the capture window, and the capture thread draws each frame through its own reference (`acquireCaptureWindow`). Upstream's capture thread releases the window unlocked while `setCaptureDisplay` waits on `capture_sync`, which every new frame also signals, so both can release it and the next `setCaptureDisplay` aborts in `decStrong`. `setCaptureDisplay` does not wait for the capture thread: a frame already being drawn finishes into the old window, which its own reference keeps alive. `clearDisplay` blanks only the preview window, so stopping the preview mid-recording adds no black frame to the clip.
+- A display window passed to `setPreviewDisplay` or `setCaptureDisplay` is always either kept or released: before the preview exists, or when it is the window already set, the JNI layer's reference from `ANativeWindow_fromSurface` is released rather than leaked.
 
 ## Release
 
@@ -19,3 +21,4 @@ Bump `HIPPULA_VERSION` and push to `hippula`. The `Hippula AAR` workflow builds 
 | --- | --- | --- | --- |
 | 0.0.13-hippula.1 | e0df72b | `e0599359b7ba117b32b6d06d4e8dcb2dcd806922c526a3cdc817cad99059ec92` | [run 43913565684](https://github.com/project-hippula/UVCCamera/actions/runs/43913565684) |
 | 0.0.13-hippula.2 | 5038d9c | `ad18b3310ef1c6cf19858c2fcd0caa219559b74879325c8c96b9c03c72398faf` | [run 43940333858](https://github.com/project-hippula/UVCCamera/actions/runs/43940333858) |
+| 0.0.13-hippula.3 | 474f86d | `b245211be00ad2436aa3efb8238b035fcc09bf6e0193cd67a9bfc70fb35ace17` | [run 45859785276](https://github.com/project-hippula/UVCCamera/actions/runs/45859785276) |

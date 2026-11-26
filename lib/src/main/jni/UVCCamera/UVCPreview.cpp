@@ -192,7 +192,10 @@ int UVCPreview::setPreviewDisplay(ANativeWindow *preview_window) {
 	ENTER();
 	pthread_mutex_lock(&preview_mutex);
 	{
-		if (mPreviewWindow != preview_window) {
+		if (mPreviewWindow == preview_window) {
+			if (preview_window)
+				ANativeWindow_release(preview_window);
+		} else {
 			if (mPreviewWindow)
 				ANativeWindow_release(mPreviewWindow);
 			mPreviewWindow = preview_window;
@@ -289,22 +292,6 @@ void UVCPreview::clearDisplay() {
 	ENTER();
 
 	ANativeWindow_Buffer buffer;
-	pthread_mutex_lock(&capture_mutex);
-	{
-		if (LIKELY(mCaptureWindow)) {
-			if (LIKELY(ANativeWindow_lock(mCaptureWindow, &buffer, NULL) == 0)) {
-				uint8_t *dest = (uint8_t *)buffer.bits;
-				const size_t bytes = buffer.width * PREVIEW_PIXEL_BYTES;
-				const int stride = buffer.stride * PREVIEW_PIXEL_BYTES;
-				for (int i = 0; i < buffer.height; i++) {
-					memset(dest, 0, bytes);
-					dest += stride;
-				}
-				ANativeWindow_unlockAndPost(mCaptureWindow);
-			}
-		}
-	}
-	pthread_mutex_unlock(&capture_mutex);
 	pthread_mutex_lock(&preview_mutex);
 	{
 		if (LIKELY(mPreviewWindow)) {
@@ -666,14 +653,10 @@ int UVCPreview::setCaptureDisplay(ANativeWindow *capture_window) {
 	ENTER();
 	pthread_mutex_lock(&capture_mutex);
 	{
-		if (isRunning() && isCapturing()) {
-			mIsCapturing = false;
-			if (mCaptureWindow) {
-				pthread_cond_signal(&capture_sync);
-				pthread_cond_wait(&capture_sync, &capture_mutex);	// wait finishing capturing
-			}
-		}
-		if (mCaptureWindow != capture_window) {
+		if (mCaptureWindow == capture_window) {
+			if (capture_window)
+				ANativeWindow_release(capture_window);
+		} else {
 			// release current Surface if already assigned.
 			if (UNLIKELY(mCaptureWindow))
 				ANativeWindow_release(mCaptureWindow);
@@ -695,9 +678,20 @@ int UVCPreview::setCaptureDisplay(ANativeWindow *capture_window) {
 				}
 			}
 		}
+		mIsCapturing = false;
+		pthread_cond_broadcast(&capture_sync);
 	}
 	pthread_mutex_unlock(&capture_mutex);
 	RETURN(0, int);
+}
+
+ANativeWindow *UVCPreview::acquireCaptureWindow() {
+	pthread_mutex_lock(&capture_mutex);
+	ANativeWindow *window = mCaptureWindow;
+	if (window)
+		ANativeWindow_acquire(window);
+	pthread_mutex_unlock(&capture_mutex);
+	return window;
 }
 
 void UVCPreview::addCaptureFrame(uvc_frame_t *frame) {
@@ -780,8 +774,11 @@ void UVCPreview::do_capture(JNIEnv *env) {
 	clearCaptureFrame();
 	callbackPixelFormatChanged();
 	for (; isRunning() ;) {
+		pthread_mutex_lock(&capture_mutex);
 		mIsCapturing = true;
-		if (mCaptureWindow) {
+		const bool hasCaptureWindow = mCaptureWindow != NULL;
+		pthread_mutex_unlock(&capture_mutex);
+		if (hasCaptureWindow) {
 			do_capture_surface(env);
 		} else {
 			do_capture_idle_loop(env);
@@ -815,28 +812,24 @@ void UVCPreview::do_capture_surface(JNIEnv *env) {
 		frame = waitCaptureFrame();
 		if (LIKELY(frame)) {
 			// frame data is always YUYV format.
-			if LIKELY(isCapturing()) {
+			ANativeWindow *window = isCapturing() ? acquireCaptureWindow() : NULL;
+			if (LIKELY(window)) {
 				if (UNLIKELY(!converted)) {
 					converted = get_frame(previewBytes);
 				}
 				if (LIKELY(converted)) {
 					int b = uvc_any2rgbx(frame, converted);
 					if (!b) {
-						if (LIKELY(mCaptureWindow)) {
-							copyToSurface(converted, &mCaptureWindow);
-						}
+						copyToSurface(converted, &window);
 					}
 				}
+				ANativeWindow_release(window);
 			}
 			do_capture_callback(env, frame);
 		}
 	}
 	if (converted) {
 		recycle_frame(converted);
-	}
-	if (mCaptureWindow) {
-		ANativeWindow_release(mCaptureWindow);
-		mCaptureWindow = NULL;
 	}
 
 	EXIT();
